@@ -8,8 +8,8 @@ import (
 	ginmetrics "github.com/devopsfaith/krakend-metrics/gin"
 	"github.com/devopsfaith/krakend/config"
 	"github.com/devopsfaith/krakend/logging"
-	"github.com/influxdata/influxdb/client/v2"
-
+	"github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
 	"github.com/letgoapp/krakend-influx/counter"
 	"github.com/letgoapp/krakend-influx/gauge"
 	"github.com/letgoapp/krakend-influx/histogram"
@@ -18,11 +18,10 @@ import (
 const Namespace = "github_com/letgoapp/krakend-influx"
 
 type clientWrapper struct {
-	influxClient client.Client
+	influxClient influxdb2.Client
+	writerApi    api.WriteAPI
 	collector    *ginmetrics.Metrics
 	logger       logging.Logger
-	db           string
-	buf          *Buffer
 }
 
 func New(ctx context.Context, extraConfig config.ExtraConfig, metricsCollector *ginmetrics.Metrics, logger logging.Logger) error {
@@ -33,34 +32,28 @@ func New(ctx context.Context, extraConfig config.ExtraConfig, metricsCollector *
 		return errNoConfig
 	}
 
-	influxdbClient, err := client.NewHTTPClient(client.HTTPConfig{
-		Addr:     cfg.address,
-		Username: cfg.username,
-		Password: cfg.password,
-		Timeout:  10 * time.Second,
-	})
-	if err != nil {
-		logger.Debug("influxdb client crashed")
-		return err
-	}
+	influxdbClient := influxdb2.NewClientWithOptions(
+		cfg.address,
+		cfg.token,
+		influxdb2.DefaultOptions().
+			SetBatchSize(cfg.batchSize),
+	)
+	writeAPI := influxdbClient.WriteAPI(cfg.org, cfg.bucket)
 
+	errorsCh := writeAPI.Errors()
 	go func() {
-		pingDuration, pingMsg, err := influxdbClient.Ping(time.Second)
-		if err != nil {
-			logger.Error("unable to ping the influx server:", err.Error())
-			return
+		for err := range errorsCh {
+			logger.Error("writing to influx:", err.Error())
 		}
-		logger.Debug("influx ping results: duration =", pingDuration, "msg =", pingMsg)
 	}()
 
 	t := time.NewTicker(cfg.ttl)
 
 	cw := clientWrapper{
 		influxClient: influxdbClient,
+		writerApi:    writeAPI,
 		collector:    metricsCollector,
 		logger:       logger,
-		db:           cfg.database,
-		buf:          NewBuffer(cfg.bufferSize),
 	}
 
 	go cw.keepUpdated(ctx, t.C)
@@ -91,48 +84,20 @@ func (cw clientWrapper) keepUpdated(ctx context.Context, ticker <-chan time.Time
 			continue
 		}
 
-		bp, _ := client.NewBatchPoints(client.BatchPointsConfig{
-			Database:  cw.db,
-			Precision: "s",
-		})
 		now := time.Unix(0, snapshot.Time)
 
 		for _, p := range counter.Points(hostname, now, snapshot.Counters, cw.logger) {
-			bp.AddPoint(p)
+			cw.writerApi.WritePoint(p)
 		}
 
 		for _, p := range gauge.Points(hostname, now, snapshot.Gauges, cw.logger) {
-			bp.AddPoint(p)
+			cw.writerApi.WritePoint(p)
 		}
 
 		for _, p := range histogram.Points(hostname, now, snapshot.Histograms, cw.logger) {
-			bp.AddPoint(p)
+			cw.writerApi.WritePoint(p)
 		}
 
-		if err := cw.influxClient.Write(bp); err != nil {
-			cw.logger.Error("writing to influx:", err.Error())
-			cw.buf.Add(bp)
-			continue
-		}
-
-		cw.logger.Info(len(bp.Points()), "datapoints sent to Influx")
-
-		pts := []*client.Point{}
-		bpPending := cw.buf.Elements()
-		for _, failedBP := range bpPending {
-			pts = append(pts, failedBP.Points()...)
-		}
-
-		retryBatch, _ := client.NewBatchPoints(client.BatchPointsConfig{
-			Database:  cw.db,
-			Precision: "s",
-		})
-		retryBatch.AddPoints(pts)
-
-		if err := cw.influxClient.Write(retryBatch); err != nil {
-			cw.logger.Error("writting to influx:", err.Error())
-			cw.buf.Add(bpPending...)
-			continue
-		}
+		cw.writerApi.Flush()
 	}
 }

@@ -6,10 +6,11 @@ import (
 
 	metrics "github.com/devopsfaith/krakend-metrics"
 	"github.com/devopsfaith/krakend/logging"
-	"github.com/influxdata/influxdb/client/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
-func Points(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*client.Point {
+func Points(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*write.Point {
 	points := latencyPoints(hostname, now, histograms, logger)
 	points = append(points, routerPoints(hostname, now, histograms, logger)...)
 	if p := debugPoint(hostname, now, histograms, logger); p != nil {
@@ -29,8 +30,8 @@ var (
 	routerRegexp  = regexp.MustCompile(routerPattern)
 )
 
-func latencyPoints(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*client.Point {
-	res := []*client.Point{}
+func latencyPoints(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*write.Point {
+	res := []*write.Point{}
 	for k, histogram := range histograms {
 		if !latencyRegexp.MatchString(k) {
 			continue
@@ -49,18 +50,14 @@ func latencyPoints(hostname string, now time.Time, histograms map[string]metrics
 			"error":    params[3],
 		}
 
-		histogramPoint, err := client.NewPoint("requests", tags, newFields(histogram), now)
-		if err != nil {
-			logger.Error("creating histogram point:", err.Error())
-			continue
-		}
+		histogramPoint := influxdb2.NewPoint("requests", tags, newFields(histogram), now)
 		res = append(res, histogramPoint)
 	}
 	return res
 }
 
-func routerPoints(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*client.Point {
-	res := []*client.Point{}
+func routerPoints(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*write.Point {
+	res := []*write.Point{}
 	for k, histogram := range histograms {
 		if !routerRegexp.MatchString(k) {
 			continue
@@ -76,17 +73,13 @@ func routerPoints(hostname string, now time.Time, histograms map[string]metrics.
 			"name": params[0],
 		}
 
-		histogramPoint, err := client.NewPoint("router.response-"+params[1], tags, newFields(histogram), now)
-		if err != nil {
-			logger.Error("creating histogram point:", err.Error())
-			continue
-		}
+		histogramPoint := influxdb2.NewPoint("router.response-"+params[1], tags, newFields(histogram), now)
 		res = append(res, histogramPoint)
 	}
 	return res
 }
 
-func debugPoint(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) *client.Point {
+func debugPoint(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) *write.Point {
 	hd, ok := histograms["krakend.service.debug.GCStats.Pause"]
 	if !ok {
 		return nil
@@ -95,15 +88,11 @@ func debugPoint(hostname string, now time.Time, histograms map[string]metrics.Hi
 		"host": hostname,
 	}
 
-	histogramPoint, err := client.NewPoint("service.debug.GCStats.Pause", tags, newFields(hd), now)
-	if err != nil {
-		logger.Error("creating histogram point:", err.Error())
-		return nil
-	}
+	histogramPoint := influxdb2.NewPoint("service.debug.GCStats.Pause", tags, newFields(hd), now)
 	return histogramPoint
 }
 
-func runtimePoint(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) *client.Point {
+func runtimePoint(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) *write.Point {
 	hd, ok := histograms["krakend.service.runtime.MemStats.PauseNs"]
 	if !ok {
 		return nil
@@ -112,11 +101,7 @@ func runtimePoint(hostname string, now time.Time, histograms map[string]metrics.
 		"host": hostname,
 	}
 
-	histogramPoint, err := client.NewPoint("service.runtime.MemStats.PauseNs", tags, newFields(hd), now)
-	if err != nil {
-		logger.Error("creating histogram point:", err.Error())
-		return nil
-	}
+	histogramPoint := influxdb2.NewPoint("service.runtime.MemStats.PauseNs", tags, newFields(hd), now)
 	return histogramPoint
 }
 

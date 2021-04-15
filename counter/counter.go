@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/devopsfaith/krakend/logging"
-	"github.com/influxdata/influxdb/client/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 	mu                = new(sync.Mutex)
 )
 
-func Points(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*client.Point {
+func Points(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*write.Point {
 	points := requestPoints(hostname, now, counters, logger)
 	points = append(points, responsePoints(hostname, now, counters, logger)...)
 	points = append(points, connectionPoints(hostname, now, counters, logger)...)
@@ -31,8 +32,8 @@ var (
 	responseCounterRegexp  = regexp.MustCompile(responseCounterPattern)
 )
 
-func requestPoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*client.Point {
-	res := []*client.Point{}
+func requestPoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*write.Point {
+	res := []*write.Point{}
 	mu.Lock()
 	for k, count := range counters {
 		if !requestCounterRegexp.MatchString(k) {
@@ -56,19 +57,16 @@ func requestPoints(hostname string, now time.Time, counters map[string]int64, lo
 		}
 		lastRequestCount[strings.Join(params, ".")] = int(count)
 
-		countersPoint, err := client.NewPoint("requests", tags, fields, now)
-		if err != nil {
-			logger.Error("creating request counters point:", err.Error())
-			continue
-		}
+		countersPoint := influxdb2.NewPoint("requests", tags, fields, now)
+
 		res = append(res, countersPoint)
 	}
 	mu.Unlock()
 	return res
 }
 
-func responsePoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*client.Point {
-	res := []*client.Point{}
+func responsePoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*write.Point {
+	res := []*write.Point{}
 	mu.Lock()
 	for k, count := range counters {
 		if !responseCounterRegexp.MatchString(k) {
@@ -90,40 +88,31 @@ func responsePoints(hostname string, now time.Time, counters map[string]int64, l
 		}
 		lastResponseCount[strings.Join(params, ".")] = int(count)
 
-		countersPoint, err := client.NewPoint("responses", tags, fields, now)
-		if err != nil {
-			logger.Error("creating response counters point:", err.Error())
-			continue
-		}
+		countersPoint := influxdb2.NewPoint("responses", tags, fields, now)
+
 		res = append(res, countersPoint)
 	}
 	mu.Unlock()
 	return res
 }
 
-func connectionPoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*client.Point {
-	res := make([]*client.Point, 2)
+func connectionPoints(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*write.Point {
+	res := make([]*write.Point, 2)
 
 	in := map[string]interface{}{
 		"current": int(counters["krakend.router.connected"]),
 		"total":   int(counters["krakend.router.connected-total"]),
 	}
-	incoming, err := client.NewPoint("router", map[string]string{"host": hostname, "direction": "in"}, in, now)
-	if err != nil {
-		logger.Error("creating incoming connection counters point:", err.Error())
-		return res
-	}
+	incoming := influxdb2.NewPoint("router", map[string]string{"host": hostname, "direction": "in"}, in, now)
+
 	res[0] = incoming
 
 	out := map[string]interface{}{
 		"current": int(counters["krakend.router.disconnected"]),
 		"total":   int(counters["krakend.router.disconnected-total"]),
 	}
-	outgoing, err := client.NewPoint("router", map[string]string{"host": hostname, "direction": "out"}, out, now)
-	if err != nil {
-		logger.Error("creating outgoing connection counters point:", err.Error())
-		return res
-	}
+	outgoing := influxdb2.NewPoint("router", map[string]string{"host": hostname, "direction": "out"}, out, now)
+
 	res[1] = outgoing
 
 	return res

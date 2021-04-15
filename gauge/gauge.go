@@ -4,30 +4,23 @@ import (
 	"time"
 
 	"github.com/devopsfaith/krakend/logging"
-	"github.com/influxdata/influxdb/client/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
-func Points(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*client.Point {
-	res := make([]*client.Point, 4)
+func Points(hostname string, now time.Time, counters map[string]int64, logger logging.Logger) []*write.Point {
+	res := make([]*write.Point, 4)
 
 	in := map[string]interface{}{
 		"gauge": int(counters["krakend.router.connected-gauge"]),
 	}
-	incoming, err := client.NewPoint("router", map[string]string{"host": hostname, "direction": "in"}, in, now)
-	if err != nil {
-		logger.Error("creating incoming connection counters point:", err.Error())
-		return res
-	}
+	incoming := influxdb2.NewPoint("router", map[string]string{"host": hostname, "direction": "in"}, in, now)
 	res[0] = incoming
 
 	out := map[string]interface{}{
 		"gauge": int(counters["krakend.router.disconnected-gauge"]),
 	}
-	outgoing, err := client.NewPoint("router", map[string]string{"host": hostname, "direction": "out"}, out, now)
-	if err != nil {
-		logger.Error("creating outgoing connection counters point:", err.Error())
-		return res
-	}
+	outgoing := influxdb2.NewPoint("router", map[string]string{"host": hostname, "direction": "out"}, out, now)
 	res[1] = outgoing
 
 	debug := map[string]interface{}{}
@@ -48,18 +41,10 @@ func Points(hostname string, now time.Time, counters map[string]int64, logger lo
 		logger.Debug("unknown gauge key:", k)
 	}
 
-	debugPoint, err := client.NewPoint("debug", map[string]string{"host": hostname}, debug, now)
-	if err != nil {
-		logger.Error("creating debug counters point:", err.Error())
-		return res
-	}
+	debugPoint := influxdb2.NewPoint("debug", map[string]string{"host": hostname}, debug, now)
 	res[2] = debugPoint
 
-	runtimePoint, err := client.NewPoint("runtime", map[string]string{"host": hostname}, runtime, now)
-	if err != nil {
-		logger.Error("creating runtime counters point:", err.Error())
-		return res
-	}
+	runtimePoint := influxdb2.NewPoint("runtime", map[string]string{"host": hostname}, runtime, now)
 	res[3] = runtimePoint
 
 	return res

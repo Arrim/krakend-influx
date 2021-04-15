@@ -10,12 +10,12 @@ import (
 const defaultBufferSize = 0
 
 type influxConfig struct {
-	address    string
-	username   string
-	password   string
-	ttl        time.Duration
-	database   string
-	bufferSize int
+	address   string
+	bucket    string
+	org       string
+	token     string
+	ttl       time.Duration
+	batchSize uint
 }
 
 func configGetter(extraConfig config.ExtraConfig) interface{} {
@@ -35,17 +35,13 @@ func configGetter(extraConfig config.ExtraConfig) interface{} {
 		cfg.address = value.(string)
 	}
 
-	if value, ok := castedConfig["username"]; ok {
-		cfg.username = value.(string)
+	if value, ok := castedConfig["org"]; ok {
+		cfg.org = value.(string)
 	}
 
-	if value, ok := castedConfig["password"]; ok {
-		cfg.password = value.(string)
-	}
-
-	if value, ok := castedConfig["buffer_size"]; ok {
-		if s, ok := value.(int); ok {
-			cfg.bufferSize = s
+	if value, ok := castedConfig["batch_size"]; ok {
+		if s, ok := value.(uint); ok {
+			cfg.batchSize = s
 		}
 	}
 
@@ -63,10 +59,10 @@ func configGetter(extraConfig config.ExtraConfig) interface{} {
 		}
 	}
 
-	if value, ok := castedConfig["db"]; ok {
-		cfg.database = value.(string)
+	if value, ok := castedConfig["bucket"]; ok {
+		cfg.bucket = value.(string)
 	} else {
-		cfg.database = "krakend"
+		cfg.bucket = "krakend"
 	}
 
 	return cfg
