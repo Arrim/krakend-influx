@@ -5,14 +5,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/arrim/krakend-influx/counter"
+	"github.com/arrim/krakend-influx/gauge"
+	"github.com/arrim/krakend-influx/histogram"
 	ginmetrics "github.com/devopsfaith/krakend-metrics/gin"
 	"github.com/devopsfaith/krakend/config"
 	"github.com/devopsfaith/krakend/logging"
 	"github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
-	"github.com/letgoapp/krakend-influx/counter"
-	"github.com/letgoapp/krakend-influx/gauge"
-	"github.com/letgoapp/krakend-influx/histogram"
 )
 
 const Namespace = "github_com/letgoapp/krakend-influx"

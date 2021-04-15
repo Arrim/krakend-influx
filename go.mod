@@ -1,4 +1,4 @@
-module github.com/letgoapp/krakend-influx
+module github.com/arrim/krakend-influx
 
 go 1.14
 
