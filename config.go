@@ -39,6 +39,10 @@ func configGetter(extraConfig config.ExtraConfig) interface{} {
 		cfg.org = value.(string)
 	}
 
+	if value, ok := castedConfig["token"]; ok {
+		cfg.token = value.(string)
+	}
+
 	if value, ok := castedConfig["batch_size"]; ok {
 		if s, ok := value.(float64); ok {
 			cfg.batchSize = uint(s)
