@@ -40,8 +40,8 @@ func configGetter(extraConfig config.ExtraConfig) interface{} {
 	}
 
 	if value, ok := castedConfig["batch_size"]; ok {
-		if s, ok := value.(uint); ok {
-			cfg.batchSize = s
+		if s, ok := value.(float64); ok {
+			cfg.batchSize = uint(s)
 		}
 	}
 
