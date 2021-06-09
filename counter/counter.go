@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/devopsfaith/krakend/logging"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
+	"github.com/luraproject/lura/logging"
 )
 
 var (

@@ -5,9 +5,9 @@ import (
 	"time"
 
 	metrics "github.com/devopsfaith/krakend-metrics"
-	"github.com/devopsfaith/krakend/logging"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
+	"github.com/luraproject/lura/logging"
 )
 
 func Points(hostname string, now time.Time, histograms map[string]metrics.HistogramData, logger logging.Logger) []*write.Point {

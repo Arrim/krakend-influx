@@ -9,10 +9,10 @@ import (
 	"github.com/arrim/krakend-influx/gauge"
 	"github.com/arrim/krakend-influx/histogram"
 	ginmetrics "github.com/devopsfaith/krakend-metrics/gin"
-	"github.com/devopsfaith/krakend/config"
-	"github.com/devopsfaith/krakend/logging"
 	"github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
+	"github.com/luraproject/lura/config"
+	"github.com/luraproject/lura/logging"
 )
 
 const Namespace = "github_com/letgoapp/krakend-influx"
